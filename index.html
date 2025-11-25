@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Asset Tester Studio Ultimate - Editor Edition</title>
+    <title>Asset Tester Studio Ultimate - Workflow Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -394,10 +394,10 @@
         <div class="flex-1 flex overflow-hidden">
           <!-- Cutter Canvas -->
           <div
-            class="flex-1 relative bg-checkerboard flex items-center justify-center overflow-auto p-8"
+            class="flex-1 relative bg-checkerboard flex items-center justify-center overflow-auto p-8 transition-all duration-200"
             id="cutterArea"
           >
-            <div class="relative shadow-2xl">
+            <div class="relative shadow-2xl pointer-events-none">
               <canvas
                 id="cutterCanvas"
                 class="max-w-none transition-all duration-200"
@@ -412,15 +412,27 @@
                 class="absolute inset-0 pointer-events-none"
               ></canvas>
             </div>
+
+            <!-- Empty State & Drop Zone -->
             <div
               id="cutterEmpty"
-              class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
+              class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 z-10 bg-gray-900/90 backdrop-blur-sm"
             >
-              <label
-                class="cursor-pointer flex flex-col items-center hover:text-pink-400 transition"
+              <div
+                class="group border-2 border-dashed border-gray-600 hover:border-pink-500 hover:bg-pink-900/20 rounded-xl p-10 text-center transition cursor-pointer"
+                onclick="document.getElementById('cutterInput').click()"
               >
-                <i class="fa-solid fa-file-image text-4xl mb-2"></i>
-                <span>Click để chọn Sprite Sheet</span>
+                <i
+                  class="fa-solid fa-cloud-arrow-up text-5xl mb-4 text-gray-600 group-hover:text-pink-400 transition transform group-hover:scale-110"
+                ></i>
+                <p
+                  class="text-sm font-bold text-gray-400 group-hover:text-white"
+                >
+                  Kéo thả hoặc Click để chọn Sheet
+                </p>
+                <p class="text-xs text-gray-600 mt-2">
+                  Hỗ trợ PNG, JPG (Sprite Sheet)
+                </p>
                 <input
                   type="file"
                   id="cutterInput"
@@ -428,14 +440,24 @@
                   class="hidden"
                   onchange="handleCutterFile(this.files[0])"
                 />
-              </label>
+              </div>
             </div>
           </div>
 
           <!-- Cutter Controls -->
           <div
-            class="w-72 bg-gray-900 border-l border-gray-800 p-5 flex flex-col gap-4 overflow-y-auto"
+            class="w-72 bg-gray-900 border-l border-gray-800 p-5 flex flex-col gap-4 overflow-y-auto relative"
           >
+            <!-- Clear Button (NEW) -->
+            <button
+              onclick="clearAllFromCutter()"
+              class="w-full py-2 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg transition flex items-center justify-center gap-2 mb-2"
+            >
+              <i class="fa-solid fa-trash-can"></i> Dọn sạch Studio
+            </button>
+
+            <hr class="border-gray-800 mb-2" />
+
             <!-- Tabs for Mode -->
             <div class="flex p-1 bg-gray-800 rounded-lg mb-2">
               <button
@@ -558,7 +580,7 @@
               </button>
             </div>
 
-            <!-- Edit Mode Controls (NEW) -->
+            <!-- Edit Mode Controls -->
             <div id="modeEditControls" class="space-y-5 hidden">
               <!-- Rotate -->
               <div>
@@ -878,6 +900,7 @@
         animZoomValue: document.getElementById("animZoomValue"),
         // Cutter
         cutterModal: document.getElementById("cutterModal"),
+        cutterArea: document.getElementById("cutterArea"),
         cutterCanvas: document.getElementById("cutterCanvas"),
         cutterGrid: document.getElementById("cutterGrid"),
         cutterOverlay: document.getElementById("cutterOverlay"),
@@ -893,9 +916,10 @@
         editAngleVal: document.getElementById("editAngleVal"),
       };
 
-      // --- Drag & Drop ---
+      // --- Main Drag & Drop ---
       window.addEventListener("dragover", (e) => {
         e.preventDefault();
+        if (!el.cutterModal.classList.contains("hidden")) return;
         el.dropZone.classList.add("border-violet-500", "bg-violet-500/10");
       });
       window.addEventListener("dragleave", (e) => {
@@ -905,7 +929,29 @@
       window.addEventListener("drop", (e) => {
         e.preventDefault();
         el.dropZone.classList.remove("border-violet-500", "bg-violet-500/10");
+        if (!el.cutterModal.classList.contains("hidden")) return;
         handleFiles(e.dataTransfer.files);
+      });
+
+      // --- Cutter Drag & Drop (NEW) ---
+      el.cutterArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.cutterArea.classList.add("bg-pink-900/20");
+        el.cutterArea.classList.add("border-pink-500");
+      });
+      el.cutterArea.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.cutterArea.classList.remove("bg-pink-900/20");
+        el.cutterArea.classList.remove("border-pink-500");
+      });
+      el.cutterArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.cutterArea.classList.remove("bg-pink-900/20");
+        el.cutterArea.classList.remove("border-pink-500");
+        handleCutterFile(e.dataTransfer.files[0]);
       });
 
       // --- Core Handling ---
@@ -1046,6 +1092,26 @@
         el.cutterModal.classList.add("opacity-0");
         setTimeout(() => el.cutterModal.classList.add("hidden"), 300);
       }
+
+      // New Function to Clear Studio directly from Cutter
+      function clearAllFromCutter() {
+        if (assets.length === 0) return showToast("Studio đang trống!", "info");
+        if (
+          !confirm(
+            "Bạn có chắc muốn xóa toàn bộ ảnh cũ trong Studio để cắt bộ mới không?"
+          )
+        )
+          return;
+
+        assets = [];
+        selection.clear();
+        el.container.innerHTML = `<div id="emptyState" class="col-span-full h-[60vh] flex flex-col items-center justify-center select-none pointer-events-none opacity-50"><i class="fa-solid fa-layer-group text-5xl text-gray-600 mb-4"></i><h2 class="text-xl font-bold text-gray-400">Trống trơn</h2><p class="text-sm text-gray-600">Thả assets vào đây để bắt đầu</p></div>`;
+        el.emptyState = document.getElementById("emptyState");
+        updateUI();
+        updateStats();
+        showToast("Đã dọn sạch Studio!", "success");
+      }
+
       function handleCutterFile(file) {
         if (!file || !file.type.startsWith("image/")) return;
         const reader = new FileReader();
@@ -1667,7 +1733,7 @@
           c.style.background = "";
           c.className =
             c.id === "cutterArea"
-              ? "flex-1 relative flex items-center justify-center overflow-auto p-8"
+              ? "flex-1 relative flex items-center justify-center overflow-auto p-8 transition-all duration-200"
               : "flex-1 relative flex flex-col transition-colors duration-300";
           if (color === "checkerboard") {
             c.classList.add("bg-checkerboard");
