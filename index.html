@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asset Tester Studio Ultimate - LuNu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <!-- GIF Lib -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <!-- SortableJS cho Drag & Drop Timeline -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              glass: "rgba(17, 24, 39, 0.85)",
+              glassBorder: "rgba(255, 255, 255, 0.08)",
+              accent: "#8b5cf6", // Violet-500
+            },
+            animation: {
+              "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              "spin-slow": "spin 3s linear infinite",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+      }
+
+      /* Checkerboard Pattern */
+      .bg-checkerboard {
+        background-color: #111827;
+        background-image: linear-gradient(45deg, #1f2937 25%, transparent 25%),
+          linear-gradient(-45deg, #1f2937 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #1f2937 75%),
+          linear-gradient(-45deg, transparent 75%, #1f2937 75%);
+        background-size: 20px 20px;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      }
+      .light-checkers .bg-checkerboard {
+        background-color: #f3f4f6;
+        background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+          linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+          linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+      }
+
+      /* Animations */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in-up {
+        animation: fadeInUp 0.3s ease-out forwards;
+      }
+
+      .pixelated {
+        image-rendering: pixelated;
+      }
+
+      .glass-panel {
+        background: rgba(17, 24, 39, 0.9);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      }
+
+      .selected-ring {
+        box-shadow: 0 0 0 2px #8b5cf6, 0 0 20px rgba(139, 92, 246, 0.5);
+        transform: translateY(-2px);
+      }
+
+      /* Timeline Styles */
+      .timeline-item.sortable-ghost {
+        opacity: 0.4;
+        background: #374151;
+      }
+      .timeline-item.sortable-drag {
+        cursor: grabbing;
+        opacity: 1;
+        background: #4c1d95;
+        transform: scale(1.05);
+        z-index: 50;
+      }
+      .active-frame {
+        border-color: #8b5cf6;
+        box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+        transform: scale(1.05);
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gray-950 text-gray-200 h-screen flex flex-col overflow-hidden font-sans selection:bg-violet-500 selection:text-white"
+  >
+    <!-- Header -->
+    <header
+      class="glass-panel z-40 px-6 py-3 flex justify-between items-center relative"
+    >
+      <div class="flex items-center gap-4">
+        <div
+          class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/30"
+        >
+          <i class="fa-solid fa-gamepad text-white text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white">
+            Asset Studio
+            <span class="text-violet-400 font-light">Ultimate</span>
+          </h1>
+          <p
+            class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold"
+          >
+            By LuNu & Trung Tình
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div
+          id="selectionActions"
+          class="hidden flex items-center gap-3 mr-6 animate-fade-in-up bg-gray-800/50 px-3 py-1.5 rounded-lg border border-gray-700"
+        >
+          <span class="text-xs text-gray-400"
+            >Đã chọn
+            <span id="selectedCount" class="text-violet-400 font-bold text-sm"
+              >0</span
+            ></span
+          >
+          <div class="h-4 w-px bg-gray-700"></div>
+          <button
+            onclick="playAnimation()"
+            class="text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 px-3 py-1.5 rounded transition shadow-lg shadow-violet-900/50 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-play"></i> Preview
+          </button>
+          <button
+            onclick="clearSelection()"
+            class="text-xs text-gray-400 hover:text-white transition"
+          >
+            Hủy
+          </button>
+        </div>
+
+        <button
+          onclick="clearAll()"
+          class="w-9 h-9 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all"
+          title="Xóa tất cả (Del)"
+        >
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+      <!-- Sidebar Controls -->
+      <aside
+        class="w-72 bg-gray-900/95 border-r border-gray-800 flex flex-col z-20 shadow-2xl overflow-y-auto backdrop-blur-md"
+      >
+        <!-- Upload Zone -->
+        <div class="p-4">
+          <div
+            onclick="document.getElementById('fileInput').click()"
+            id="dropZone"
+            class="group relative h-28 w-full rounded-xl border-2 border-dashed border-gray-700 hover:border-violet-500 hover:bg-violet-500/5 transition-all cursor-pointer flex flex-col items-center justify-center overflow-hidden"
+          >
+            <input
+              type="file"
+              id="fileInput"
+              multiple
+              accept="image/*"
+              class="hidden"
+              onchange="handleFiles(this.files)"
+            />
+            <i
+              class="fa-solid fa-cloud-arrow-up text-2xl text-gray-500 group-hover:text-violet-400 mb-2 transition-transform group-hover:scale-110"
+            ></i>
+            <span
+              class="text-xs font-medium text-gray-400 group-hover:text-violet-300"
+              >Thả Assets Vào Đây</span
+            >
+          </div>
+        </div>
+
+        <div class="px-4 space-y-6 pb-8">
+          <!-- Selection Controls (NEW) -->
+          <div>
+            <h3
+              class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2"
+            >
+              <i class="fa-solid fa-check-double"></i> Selection
+            </h3>
+            <button
+              onclick="toggleSelectAll()"
+              id="btnSelectAll"
+              class="w-full py-2 px-3 text-xs font-bold bg-gray-800 hover:bg-violet-700 border border-gray-700 text-gray-300 rounded-lg transition flex items-center justify-center gap-2 group"
+            >
+              <i
+                class="fa-solid fa-list-check group-hover:scale-110 transition"
+              ></i>
+              <span>Chọn Tất Cả</span>
+            </button>
+          </div>
+
+          <!-- Presets -->
+          <div>
+            <h3
+              class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Auto Select
+            </h3>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="applyPreset('idle')" class="preset-btn">
+                <i class="fa-solid fa-user"></i> Idle
+              </button>
+              <button onclick="applyPreset('run')" class="preset-btn">
+                <i class="fa-solid fa-person-running"></i> Run
+              </button>
+              <button onclick="applyPreset('attack')" class="preset-btn">
+                <i class="fa-solid fa-hand-fist"></i> Attack
+              </button>
+              <button onclick="applyPreset('jump')" class="preset-btn">
+                <i class="fa-solid fa-arrow-up"></i> Jump
+              </button>
+              <button onclick="applyPreset('hit')" class="preset-btn">
+                <i class="fa-solid fa-heart-crack"></i> Hit
+              </button>
+              <button onclick="applyPreset('death')" class="preset-btn">
+                <i class="fa-solid fa-skull"></i> Death
+              </button>
+            </div>
+          </div>
+
+          <!-- Display Options -->
+          <div>
+            <h3
+              class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2"
+            >
+              Display
+            </h3>
+            <div
+              class="bg-gray-800/50 p-3 rounded-xl border border-gray-700/50 space-y-3"
+            >
+              <div class="flex justify-between items-center">
+                <span class="text-xs text-gray-400">Pixel Art</span>
+                <button
+                  id="btnPixel"
+                  onclick="togglePixelMode()"
+                  class="w-8 h-4 bg-gray-600 rounded-full relative transition-colors focus:outline-none"
+                >
+                  <div
+                    class="w-2 h-2 bg-white rounded-full absolute top-1 left-1 transition-transform"
+                  ></div>
+                </button>
+              </div>
+              <div>
+                <div
+                  class="flex justify-between text-[10px] text-gray-500 mb-1"
+                >
+                  Scale <span id="zoomValue" class="text-violet-400">1x</span>
+                </div>
+                <input
+                  type="range"
+                  id="zoomRange"
+                  min="0.5"
+                  max="4"
+                  step="0.5"
+                  value="1"
+                  class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Backgrounds -->
+          <div>
+            <h3
+              class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2"
+            >
+              Background
+            </h3>
+            <div class="flex gap-2">
+              <button
+                onclick="setBg('checkerboard', true)"
+                class="w-8 h-8 rounded border border-gray-600 bg-checkerboard hover:border-violet-500 transition"
+              ></button>
+              <button
+                onclick="setBg('checkerboard', false)"
+                class="w-8 h-8 rounded border border-gray-600 bg-checkerboard light-checkers hover:border-violet-500 transition"
+              ></button>
+              <button
+                onclick="setBg('#0f172a')"
+                class="w-8 h-8 rounded border border-gray-600 bg-slate-900 hover:border-violet-500 transition"
+              ></button>
+              <button
+                onclick="setBg('#ffffff')"
+                class="w-8 h-8 rounded border border-gray-600 bg-white hover:border-violet-500 transition"
+              ></button>
+              <input
+                type="color"
+                oninput="setBg(this.value)"
+                class="w-8 h-8 rounded p-0 border border-gray-600 bg-transparent cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div
+            class="pt-4 border-t border-gray-800 text-[10px] text-gray-500 flex justify-between"
+          >
+            <span>Items: <b class="text-gray-300" id="totalCount">0</b></span>
+            <span>Size: <b class="text-gray-300" id="totalSize">0 MB</b></span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Canvas -->
+      <main
+        id="canvasArea"
+        class="flex-1 relative bg-checkerboard overflow-hidden flex flex-col transition-colors duration-300"
+        onclick="handleBgClick(event)"
+      >
+        <div
+          id="scrollContainer"
+          class="flex-1 overflow-y-auto p-6 custom-scroll"
+        >
+          <div
+            id="assetsContainer"
+            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-4 pb-20"
+          >
+            <!-- Empty State -->
+            <div
+              id="emptyState"
+              class="col-span-full h-[60vh] flex flex-col items-center justify-center select-none pointer-events-none opacity-50"
+            >
+              <i
+                class="fa-solid fa-layer-group text-5xl text-gray-600 mb-4"
+              ></i>
+              <h2 class="text-xl font-bold text-gray-400">Trống trơn</h2>
+              <p class="text-sm text-gray-600">Thả assets vào đây để bắt đầu</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Animation Studio Modal -->
+    <div
+      id="animModal"
+      class="fixed inset-0 z-[100] bg-black/90 backdrop-blur hidden flex items-center justify-center opacity-0 transition-opacity duration-300"
+    >
+      <div
+        class="bg-gray-900 border border-gray-700 w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-transform duration-300"
+        id="animModalContent"
+      >
+        <!-- Toolbar -->
+        <div
+          class="h-14 border-b border-gray-800 flex justify-between items-center px-6 bg-gray-950"
+        >
+          <div class="flex items-center gap-4">
+            <h2 class="text-lg font-bold text-white">
+              <i class="fa-solid fa-clapperboard text-violet-500 mr-2"></i
+              >Animation Studio
+            </h2>
+            <span
+              id="animFrameCount"
+              class="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-gray-700"
+              >0 frames</span
+            >
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              onclick="closeAnimModal()"
+              class="w-8 h-8 rounded hover:bg-gray-800 text-gray-400 transition"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Workspace -->
+        <div class="flex-1 flex overflow-hidden">
+          <!-- Preview Area -->
+          <div
+            class="flex-1 flex flex-col relative bg-checkerboard"
+            id="animCanvas"
+          >
+            <div
+              class="flex-1 flex items-center justify-center overflow-hidden p-8"
+            >
+              <img
+                id="animPreviewImg"
+                src=""
+                class="max-w-full max-h-full object-contain drop-shadow-2xl transition-all duration-75"
+                alt="Preview"
+              />
+            </div>
+
+            <!-- Timeline Panel -->
+            <div
+              class="h-32 bg-gray-900 border-t border-gray-800 flex flex-col"
+            >
+              <div
+                class="px-4 py-2 border-b border-gray-800 flex justify-between items-center"
+              >
+                <span class="text-[10px] font-bold uppercase text-gray-500"
+                  >Timeline (Kéo thả để sắp xếp)</span
+                >
+              </div>
+              <div
+                id="timelineContainer"
+                class="flex-1 overflow-x-auto p-2 flex gap-2 custom-scroll items-center"
+              >
+                <!-- Thumbnails injected here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Sidebar Controls -->
+          <div
+            class="w-72 bg-gray-900 border-l border-gray-800 p-5 flex flex-col gap-6 overflow-y-auto"
+          >
+            <!-- Playback Controls -->
+            <div
+              class="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col gap-4"
+            >
+              <div class="flex justify-center items-center gap-4">
+                <button
+                  onclick="stepFrame(-1)"
+                  class="w-8 h-8 text-gray-400 hover:text-white"
+                >
+                  <i class="fa-solid fa-backward-step"></i>
+                </button>
+                <button
+                  id="btnPlayPause"
+                  onclick="togglePlay()"
+                  class="w-12 h-12 rounded-full bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-900/40 flex items-center justify-center text-xl transition transform active:scale-95"
+                >
+                  <i class="fa-solid fa-pause"></i>
+                </button>
+                <button
+                  onclick="stepFrame(1)"
+                  class="w-8 h-8 text-gray-400 hover:text-white"
+                >
+                  <i class="fa-solid fa-forward-step"></i>
+                </button>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs text-gray-400 mb-2">
+                  <span>Speed</span>
+                  <span class="font-mono text-violet-400"
+                    ><span id="fpsValue">12</span> FPS</span
+                  >
+                </div>
+                <input
+                  type="range"
+                  id="fpsRange"
+                  min="1"
+                  max="60"
+                  value="12"
+                  class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                />
+              </div>
+
+              <!-- New Zoom Control -->
+              <div class="pt-2 border-t border-gray-700/50 mt-2">
+                <div class="flex justify-between text-xs text-gray-400 mb-2">
+                  <span>Zoom Preview</span>
+                  <span class="font-mono text-violet-400"
+                    ><span id="animZoomValue">1.0x</span></span
+                  >
+                </div>
+                <input
+                  type="range"
+                  id="animZoomRange"
+                  min="0.5"
+                  max="5"
+                  step="0.1"
+                  value="1"
+                  class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                />
+              </div>
+            </div>
+
+            <!-- Export Actions -->
+            <div class="space-y-3">
+              <label class="text-xs font-bold text-gray-500 uppercase"
+                >Xuất File</label
+              >
+
+              <button
+                onclick="exportGif()"
+                id="btnExportGif"
+                class="w-full py-3 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white rounded-lg shadow-lg shadow-pink-900/20 flex items-center justify-center gap-2 transition font-bold text-sm group"
+              >
+                <i
+                  class="fa-solid fa-clapperboard group-hover:animate-pulse"
+                ></i>
+                Xuất GIF
+              </button>
+
+              <button
+                onclick="exportSpriteSheet()"
+                id="btnExportSheet"
+                class="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition font-bold text-sm group"
+              >
+                <i
+                  class="fa-solid fa-table-cells group-hover:animate-pulse"
+                ></i>
+                Xuất Sprite Sheet
+              </button>
+            </div>
+
+            <!-- Helper -->
+            <div
+              class="mt-auto bg-violet-900/10 border border-violet-500/20 rounded-lg p-3"
+            >
+              <p class="text-[10px] text-violet-300 leading-relaxed">
+                <i class="fa-solid fa-lightbulb mr-1"></i>
+                Kéo thả các frame ở thanh timeline bên dưới để sửa thứ tự chuyển
+                động trước khi xuất file.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div
+      id="toast"
+      class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-2xl border border-gray-700 transform translate-y-24 transition-transform duration-300 flex items-center gap-3 z-[200]"
+    >
+      <i class="fa-solid fa-circle-check text-green-500"></i>
+      <span id="toastMsg" class="text-sm font-medium">Notification</span>
+    </div>
+
+    <script>
+      // --- Init & Config ---
+      const config = { pixelMode: false, zoom: 1, bg: "checkerboard" };
+      let assets = []; // {id, file, src, name, size}
+      let selection = new Set();
+      let lastSelectedId = null;
+
+      // Animation State
+      let anim = {
+        isPlaying: false,
+        frames: [],
+        index: 0,
+        fps: 12,
+        timer: null,
+      };
+
+      // DOM Elements
+      const el = {
+        dropZone: document.getElementById("dropZone"),
+        fileInput: document.getElementById("fileInput"),
+        container: document.getElementById("assetsContainer"),
+        emptyState: document.getElementById("emptyState"),
+        selectionActions: document.getElementById("selectionActions"),
+        selectedCount: document.getElementById("selectedCount"),
+        animModal: document.getElementById("animModal"),
+        animImg: document.getElementById("animPreviewImg"),
+        timeline: document.getElementById("timelineContainer"),
+        toast: document.getElementById("toast"),
+        fpsRange: document.getElementById("fpsRange"),
+        fpsValue: document.getElementById("fpsValue"),
+        // New Animation Zoom
+        animZoomRange: document.getElementById("animZoomRange"),
+        animZoomValue: document.getElementById("animZoomValue"),
+      };
+
+      // --- Drag & Drop ---
+      window.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        el.dropZone.classList.add("border-violet-500", "bg-violet-500/10");
+      });
+      window.addEventListener("dragleave", (e) => {
+        if (!el.dropZone.contains(e.relatedTarget))
+          el.dropZone.classList.remove("border-violet-500", "bg-violet-500/10");
+      });
+      window.addEventListener("drop", (e) => {
+        e.preventDefault();
+        el.dropZone.classList.remove("border-violet-500", "bg-violet-500/10");
+        handleFiles(e.dataTransfer.files);
+      });
+
+      // --- File Handling ---
+      function handleFiles(files) {
+        const valid = [...files].filter((f) => f.type.startsWith("image/"));
+        if (valid.length) el.emptyState.classList.add("hidden");
+
+        valid.forEach((file, i) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            const asset = {
+              id: `asset-${Date.now()}-${Math.random()
+                .toString(36)
+                .substr(2, 9)}`,
+              name: file.name,
+              size: file.size,
+              src: reader.result,
+            };
+            assets.push(asset);
+            // DOM insertion delayed slightly for UI responsiveness
+            setTimeout(() => renderAsset(asset), i * 30);
+          };
+        });
+        setTimeout(updateStats, 500);
+      }
+
+      function renderAsset(asset) {
+        const div = document.createElement("div");
+        div.className = `group relative bg-gray-800/60 rounded-xl border border-gray-700/50 hover:border-violet-500/50 hover:bg-gray-800 transition-all duration-200 cursor-pointer overflow-hidden animate-fade-in-up select-none`;
+        div.id = asset.id;
+        div.onclick = (e) => handleClick(asset.id, e);
+
+        div.innerHTML = `
+                <div class="aspect-square relative flex items-center justify-center p-3 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjMTEhODI3Ii8+PHBhdGggZD0iTTAgMEw4IDhaTTggMEwwIDhaIiBzdHJva2U9IiMxZjI5MzciIHN0cm9rZS13aWR0aD0iMC41Ii8+PC9zdmc+')] bg-repeat">
+                    <div class="absolute inset-0 bg-checkerboard opacity-30 pointer-events-none"></div>
+                    <img src="${
+                      asset.src
+                    }" class="max-w-full max-h-full object-contain transition-transform duration-200 asset-img ${
+          config.pixelMode ? "pixelated" : ""
+        }" style="transform: scale(${config.zoom})">
+                    
+                    <!-- Selection Check -->
+                    <div class="absolute top-2 left-2 w-5 h-5 rounded-full border border-gray-500 bg-gray-900/50 flex items-center justify-center transition-all selection-indicator opacity-0 group-hover:opacity-100">
+                        <i class="fa-solid fa-check text-[10px] text-white hidden"></i>
+                    </div>
+                </div>
+                <div class="px-3 py-2 border-t border-gray-700/50 bg-gray-900/50">
+                    <p class="text-[10px] font-bold text-gray-300 truncate" title="${
+                      asset.name
+                    }">${asset.name}</p>
+                    <p class="text-[9px] text-gray-500 font-mono">${formatBytes(
+                      asset.size
+                    )}</p>
+                </div>
+            `;
+        el.container.appendChild(div);
+      }
+
+      // --- Interaction Logic ---
+      function handleClick(id, e) {
+        if (e.shiftKey && lastSelectedId) {
+          // Shift Select
+          const idx1 = assets.findIndex((a) => a.id === lastSelectedId);
+          const idx2 = assets.findIndex((a) => a.id === id);
+          if (idx1 !== -1 && idx2 !== -1) {
+            const start = Math.min(idx1, idx2);
+            const end = Math.max(idx1, idx2);
+            for (let i = start; i <= end; i++) toggleSelect(assets[i].id, true);
+          }
+        } else {
+          toggleSelect(id);
+        }
+        lastSelectedId = id;
+      }
+
+      function toggleSelect(id, forceState = null) {
+        const isSel = selection.has(id);
+        const newState = forceState !== null ? forceState : !isSel;
+
+        if (newState) selection.add(id);
+        else selection.delete(id);
+
+        const card = document.getElementById(id);
+        if (card) {
+          const indicator = card.querySelector(".selection-indicator");
+          if (newState) {
+            card.classList.add("selected-ring", "border-violet-500");
+            indicator.classList.add(
+              "bg-violet-600",
+              "border-violet-600",
+              "opacity-100"
+            );
+            indicator.querySelector("i").classList.remove("hidden");
+          } else {
+            card.classList.remove("selected-ring", "border-violet-500");
+            indicator.classList.remove(
+              "bg-violet-600",
+              "border-violet-600",
+              "opacity-100"
+            );
+            indicator.querySelector("i").classList.add("hidden");
+          }
+        }
+        updateUI();
+      }
+
+      function toggleSelectAll() {
+        const allSelected = assets.every((a) => selection.has(a.id));
+
+        if (allSelected) {
+          clearSelection();
+        } else {
+          assets.forEach((a) => {
+            if (!selection.has(a.id)) toggleSelect(a.id, true);
+          });
+        }
+        updateUI();
+      }
+
+      function clearSelection() {
+        selection.forEach((id) => toggleSelect(id, false));
+      }
+
+      function clearAll() {
+        if (!confirm("Xóa tất cả assets?")) return;
+        assets = [];
+        selection.clear();
+        el.container.innerHTML = `<div id="emptyState" class="col-span-full h-[60vh] flex flex-col items-center justify-center select-none pointer-events-none opacity-50"><i class="fa-solid fa-layer-group text-5xl text-gray-600 mb-4"></i><h2 class="text-xl font-bold text-gray-400">Trống trơn</h2><p class="text-sm text-gray-600">Thả assets vào đây để bắt đầu</p></div>`;
+        el.emptyState = document.getElementById("emptyState");
+        updateUI();
+        updateStats();
+      }
+
+      function handleBgClick(e) {
+        if (
+          e.target === document.getElementById("scrollContainer") ||
+          e.target === document.getElementById("assetsContainer")
+        ) {
+          clearSelection();
+        }
+      }
+
+      // --- Smart Presets ---
+      function applyPreset(keyword) {
+        clearSelection();
+        const keys = {
+          idle: ["idle", "stand", "wait"],
+          run: ["run", "walk", "move", "go"],
+          attack: ["attack", "atk", "slash", "hit", "punch", "shoot"],
+          jump: ["jump", "fall", "land", "air"],
+          hit: ["hit", "hurt", "damage", "pain"],
+          death: ["die", "death", "kill", "dead"],
+        };
+
+        const terms = keys[keyword] || [keyword];
+        let count = 0;
+        assets.forEach((a) => {
+          if (terms.some((t) => a.name.toLowerCase().includes(t))) {
+            toggleSelect(a.id, true);
+            count++;
+          }
+        });
+
+        // Set FPS suggestion
+        const fpsMap = {
+          idle: 8,
+          run: 12,
+          attack: 15,
+          jump: 10,
+          hit: 12,
+          death: 10,
+        };
+        el.fpsRange.value = fpsMap[keyword] || 12;
+        updateFps();
+
+        if (count > 0) showToast(`Đã chọn ${count} assets (${keyword})`);
+        else showToast(`Không tìm thấy file nào tên "${keyword}"`, "error");
+      }
+
+      // --- Animation Logic ---
+      function playAnimation() {
+        if (selection.size === 0)
+          return showToast("Chưa chọn asset nào!", "error");
+
+        // Prepare frames
+        const selAssets = assets.filter((a) => selection.has(a.id));
+        // Sort smartly by name numbers
+        selAssets.sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          })
+        );
+
+        anim.frames = selAssets.map((a) => a.src); // Use logic ID to track if needed, but src is enough for preview
+
+        // Reset Zoom to 1.0x when opening
+        el.animZoomRange.value = 1;
+        el.animZoomValue.innerText = "1.0x";
+        el.animImg.style.transform = "scale(1)";
+
+        // Render Timeline
+        renderTimeline();
+
+        // Open Modal
+        el.animModal.classList.remove("hidden");
+        requestAnimationFrame(() => {
+          el.animModal.classList.remove("opacity-0");
+          document
+            .getElementById("animModalContent")
+            .classList.remove("scale-95");
+        });
+
+        startAnim();
+      }
+
+      function renderTimeline() {
+        el.timeline.innerHTML = "";
+        anim.frames.forEach((src, idx) => {
+          const div = document.createElement("div");
+          div.className = `timeline-item min-w-[60px] h-[60px] bg-gray-800 rounded border border-gray-700 hover:border-violet-500 cursor-grab relative group flex-shrink-0 flex items-center justify-center overflow-hidden transition-all`;
+          if (idx === anim.index) div.classList.add("active-frame");
+          div.dataset.index = idx; // Track index for playback highlight logic
+
+          div.innerHTML = `
+                    <div class="absolute inset-0 bg-checkerboard opacity-20"></div>
+                    <img src="${src}" class="max-w-full max-h-full object-contain pointer-events-none ${
+            config.pixelMode ? "pixelated" : ""
+          }">
+                    <button onclick="removeFrame(${idx})" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><i class="fa-solid fa-times"></i></button>
+                    <div class="absolute bottom-0 left-0 bg-black/50 text-[8px] text-white px-1">${
+                      idx + 1
+                    }</div>
+                `;
+
+          // Allow click to jump to frame
+          div.onclick = (e) => {
+            if (!e.target.closest("button")) {
+              anim.index = idx;
+              renderFrame();
+              stopAnim(); // Pause to examine
+            }
+          };
+
+          el.timeline.appendChild(div);
+        });
+
+        // Initialize Sortable
+        new Sortable(el.timeline, {
+          animation: 150,
+          ghostClass: "sortable-ghost",
+          dragClass: "sortable-drag",
+          onEnd: function (evt) {
+            // Update array based on new DOM order
+            const newFrames = [];
+            const items = el.timeline.querySelectorAll(".timeline-item");
+            items.forEach((item) => {
+              const img = item.querySelector("img");
+              newFrames.push(img.src);
+            });
+            anim.frames = newFrames;
+            anim.index = 0; // Reset
+            renderTimeline(); // Re-render indices
+          },
+        });
+
+        document.getElementById(
+          "animFrameCount"
+        ).innerText = `${anim.frames.length} frames`;
+      }
+
+      function removeFrame(idx) {
+        anim.frames.splice(idx, 1);
+        if (anim.frames.length === 0) {
+          closeAnimModal();
+        } else {
+          if (anim.index >= anim.frames.length) anim.index = 0;
+          renderTimeline();
+          renderFrame();
+        }
+      }
+
+      function startAnim() {
+        stopAnim();
+        anim.isPlaying = true;
+        document.getElementById("btnPlayPause").innerHTML =
+          '<i class="fa-solid fa-pause"></i>';
+
+        const loop = () => {
+          anim.timer = setTimeout(() => {
+            renderFrame();
+            anim.index = (anim.index + 1) % anim.frames.length;
+
+            // Update Timeline Active State visually
+            const items = el.timeline.querySelectorAll(".timeline-item");
+            items.forEach((i) => i.classList.remove("active-frame"));
+            if (items[anim.index]) {
+              items[anim.index].classList.add("active-frame");
+              items[anim.index].scrollIntoView({
+                behavior: "smooth",
+                inline: "center",
+                block: "nearest",
+              });
+            }
+
+            if (anim.isPlaying) loop();
+          }, 1000 / anim.fps);
+        };
+        loop();
+      }
+
+      function stopAnim() {
+        anim.isPlaying = false;
+        document.getElementById("btnPlayPause").innerHTML =
+          '<i class="fa-solid fa-play"></i>';
+        if (anim.timer) clearTimeout(anim.timer);
+      }
+
+      function togglePlay() {
+        anim.isPlaying ? stopAnim() : startAnim();
+      }
+
+      function stepFrame(dir) {
+        stopAnim();
+        let next = anim.index + dir;
+        if (next >= anim.frames.length) next = 0;
+        if (next < 0) next = anim.frames.length - 1;
+        anim.index = next;
+        renderFrame();
+        // Highlight timeline
+        const items = el.timeline.querySelectorAll(".timeline-item");
+        items.forEach((i) => i.classList.remove("active-frame"));
+        if (items[anim.index]) items[anim.index].classList.add("active-frame");
+      }
+
+      function renderFrame() {
+        el.animImg.src = anim.frames[anim.index] || anim.frames[0];
+      }
+
+      function closeAnimModal() {
+        stopAnim();
+        el.animModal.classList.add("opacity-0");
+        document.getElementById("animModalContent").classList.add("scale-95");
+        setTimeout(() => el.animModal.classList.add("hidden"), 300);
+      }
+
+      // --- Exports ---
+      async function exportGif() {
+        if (anim.frames.length === 0) return;
+        const btn = document.getElementById("btnExportGif");
+        const old = btn.innerHTML;
+        btn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Rendering...';
+        btn.disabled = true;
+
+        try {
+          const gif = new GIF({
+            workers: 2,
+            quality: 10,
+            width: el.animImg.naturalWidth,
+            height: el.animImg.naturalHeight,
+            workerScript:
+              "https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js",
+          });
+
+          // Preload images
+          const imgs = await Promise.all(
+            anim.frames.map(
+              (src) =>
+                new Promise((res) => {
+                  const i = new Image();
+                  i.src = src;
+                  i.onload = () => res(i);
+                })
+            )
+          );
+
+          imgs.forEach((img) => gif.addFrame(img, { delay: 1000 / anim.fps }));
+
+          gif.on("finished", (blob) => {
+            downloadBlob(blob, "animation.gif");
+            btn.innerHTML = old;
+            btn.disabled = false;
+            showToast("Xuất GIF thành công!");
+          });
+          gif.render();
+        } catch (e) {
+          console.error(e);
+          btn.innerHTML = old;
+          btn.disabled = false;
+          showToast("Lỗi render", "error");
+        }
+      }
+
+      async function exportSpriteSheet() {
+        if (anim.frames.length === 0) return;
+        const btn = document.getElementById("btnExportSheet");
+        const old = btn.innerHTML;
+        btn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+        btn.disabled = true;
+
+        try {
+          // Preload images to get dims
+          const imgs = await Promise.all(
+            anim.frames.map(
+              (src) =>
+                new Promise((res) => {
+                  const i = new Image();
+                  i.src = src;
+                  i.onload = () => res(i);
+                })
+            )
+          );
+
+          const w = imgs[0].width;
+          const h = imgs[0].height;
+          const totalW = w * imgs.length;
+
+          const cvs = document.createElement("canvas");
+          cvs.width = totalW;
+          cvs.height = h;
+          const ctx = cvs.getContext("2d");
+
+          imgs.forEach((img, i) => {
+            ctx.drawImage(img, i * w, 0);
+          });
+
+          cvs.toBlob((blob) => {
+            downloadBlob(blob, "spritesheet.png");
+            btn.innerHTML = old;
+            btn.disabled = false;
+            showToast("Xuất Sprite Sheet thành công!");
+          });
+        } catch (e) {
+          console.error(e);
+          btn.innerHTML = old;
+          btn.disabled = false;
+          showToast("Lỗi Sprite Sheet", "error");
+        }
+      }
+
+      // --- Global Helpers ---
+      function togglePixelMode() {
+        config.pixelMode = !config.pixelMode;
+        document
+          .querySelectorAll("img")
+          .forEach((img) =>
+            img.classList.toggle("pixelated", config.pixelMode)
+          );
+        document.getElementById("btnPixel").children[0].style.transform =
+          config.pixelMode ? "translateX(16px)" : "translateX(0)";
+        document
+          .getElementById("btnPixel")
+          .classList.toggle("bg-violet-600", config.pixelMode);
+        document
+          .getElementById("btnPixel")
+          .classList.toggle("bg-gray-600", !config.pixelMode);
+      }
+
+      function setBg(color, isDark = true) {
+        const arr = [
+          document.getElementById("canvasArea"),
+          document.getElementById("animCanvas"),
+        ];
+        arr.forEach((c) => {
+          c.style.background = "";
+          c.className =
+            "flex-1 relative flex flex-col transition-colors duration-300";
+          if (color === "checkerboard") {
+            c.classList.add("bg-checkerboard");
+            if (!isDark) c.classList.add("light-checkers");
+          } else c.style.backgroundColor = color;
+        });
+      }
+
+      function updateFps() {
+        const val = el.fpsRange.value;
+        document.getElementById("fpsValue").innerText = val;
+        anim.fps = parseInt(val);
+        if (anim.isPlaying) startAnim();
+      }
+
+      function updateUI() {
+        const count = selection.size;
+        el.selectedCount.innerText = count;
+
+        // Update Select All button text
+        const btnAll = document.getElementById("btnSelectAll");
+        if (btnAll) {
+          const span = btnAll.querySelector("span");
+          if (assets.length > 0 && count === assets.length) {
+            span.innerText = "Bỏ Chọn Tất Cả";
+            btnAll.classList.replace("bg-gray-800", "bg-violet-900");
+          } else {
+            span.innerText = "Chọn Tất Cả";
+            btnAll.classList.replace("bg-violet-900", "bg-gray-800");
+          }
+        }
+
+        if (count > 0) el.selectionActions.classList.remove("hidden");
+        else el.selectionActions.classList.add("hidden");
+      }
+
+      function updateStats() {
+        document.getElementById("totalCount").innerText = assets.length;
+        document.getElementById("totalSize").innerText = formatBytes(
+          assets.reduce((a, b) => a + b.size, 0)
+        );
+      }
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return "0 B";
+        const k = 1024,
+          sizes = ["B", "KB", "MB", "GB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+      }
+
+      function downloadBlob(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      function showToast(msg, type = "success") {
+        const t = el.toast;
+        document.getElementById("toastMsg").innerText = msg;
+        t.querySelector("i").className =
+          type === "error"
+            ? "fa-solid fa-circle-exclamation text-red-500"
+            : "fa-solid fa-circle-check text-green-500";
+        t.classList.remove("translate-y-24");
+        setTimeout(() => t.classList.add("translate-y-24"), 2500);
+      }
+
+      // --- Keyboard Shortcuts ---
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Delete") {
+          if (selection.size > 0 && confirm(`Xóa ${selection.size} item?`)) {
+            assets = assets.filter((a) => !selection.has(a.id));
+            document
+              .querySelectorAll(".selected-ring")
+              .forEach((el) => el.parentElement.remove());
+            clearSelection();
+            updateStats();
+            if (assets.length === 0) el.emptyState.classList.remove("hidden");
+          }
+        }
+        if (e.key === "a" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          toggleSelectAll();
+        }
+        if (e.key === "Escape") closeAnimModal();
+        if (e.key === " " && !el.animModal.classList.contains("hidden")) {
+          e.preventDefault();
+          togglePlay();
+        }
+      });
+
+      // Listeners
+      el.fpsRange.addEventListener("input", updateFps);
+      document.getElementById("zoomRange").addEventListener("input", (e) => {
+        config.zoom = e.target.value;
+        document.getElementById("zoomValue").innerText = e.target.value + "x";
+        document
+          .querySelectorAll(".asset-img")
+          .forEach((img) => (img.style.transform = `scale(${config.zoom})`));
+      });
+
+      // NEW Listener for Animation Zoom
+      el.animZoomRange.addEventListener("input", (e) => {
+        const zoom = e.target.value;
+        el.animZoomValue.innerText = zoom + "x";
+        el.animImg.style.transform = `scale(${zoom})`;
+      });
+
+      // Styles for preset buttons
+      const style = document.createElement("style");
+      style.innerHTML = `
+            .preset-btn {
+                @apply w-full py-2 px-2 text-[10px] bg-gray-800 hover:bg-violet-700 border border-gray-700 text-gray-300 rounded-lg transition text-center flex flex-col items-center justify-center gap-1 active:scale-95;
+            }
+        `;
+      document.head.appendChild(style);
+    </script>
+  </body>
+</html>
