@@ -967,41 +967,55 @@
         btn.disabled = true;
 
         try {
-          const gif = new GIF({
-            workers: 2,
-            quality: 10,
-            width: el.animImg.naturalWidth,
-            height: el.animImg.naturalHeight,
-            workerScript:
-              "https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js",
-          });
+          // FIX: Fetch worker code manually to bypass CORS
+          // gif.js workers often fail on CDNs due to security policies.
+          // We fetch the code as a blob and create a local object URL.
+          const workerResp = await fetch(
+            "https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js"
+          );
+          if (!workerResp.ok) throw new Error("Worker fetch failed");
+          const workerBlob = await workerResp.blob();
+          const workerUrl = URL.createObjectURL(workerBlob);
 
-          // Preload images
+          // Preload images first to get correct dimensions
           const imgs = await Promise.all(
             anim.frames.map(
               (src) =>
                 new Promise((res) => {
                   const i = new Image();
+                  i.crossOrigin = "Anonymous";
                   i.src = src;
                   i.onload = () => res(i);
                 })
             )
           );
 
+          // Init GIF with dimensions from the first frame
+          const gif = new GIF({
+            workers: 2,
+            quality: 10,
+            width: imgs[0].naturalWidth,
+            height: imgs[0].naturalHeight,
+            workerScript: workerUrl,
+            transparent: 0x000000, // Thiết lập màu trong suốt (transparent color key)
+          });
+
           imgs.forEach((img) => gif.addFrame(img, { delay: 1000 / anim.fps }));
 
           gif.on("finished", (blob) => {
-            downloadBlob(blob, "animation.gif");
+            downloadBlob(blob, `animation_${Date.now()}.gif`);
             btn.innerHTML = old;
             btn.disabled = false;
             showToast("Xuất GIF thành công!");
+            URL.revokeObjectURL(workerUrl); // Cleanup
           });
+
           gif.render();
         } catch (e) {
           console.error(e);
           btn.innerHTML = old;
           btn.disabled = false;
-          showToast("Lỗi render", "error");
+          showToast("Lỗi render (Xem Console)", "error");
         }
       }
 
